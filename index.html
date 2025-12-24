@@ -43,7 +43,7 @@
     
     <div id="instruction">
         화면을 클릭하면 시작합니다.<br>
-        [W, A, S, D] 앞뒤좌우 이동<br>
+        [W, A, S, D] 앞뒤좌우 이동 (고속 모드)<br>
         <strong>[SPACE] 위로 상승 | [SHIFT] 아래로 하강</strong><br>
         [마우스] 시선 이동 | [ESC] 나가기
     </div>
@@ -63,13 +63,12 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
         camera.position.set(-50, 100, 250);
 
-        // [✅ 최적화 1] 전력 우선 모드 설정 & 픽셀 비율 제한
+        // 최적화 설정
         const renderer = new THREE.WebGLRenderer({ 
             antialias: true, 
-            powerPreference: "high-performance" // 성능 우선
+            powerPreference: "high-performance" 
         });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // 고해상도 모니터에서도 최대 2배까지만 렌더링 (렉 방지 핵심)
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         
         renderer.shadowMap.enabled = true;
@@ -83,18 +82,15 @@
         const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
         dirLight.position.set(100, 200, 100);
         dirLight.castShadow = true;
-        
-        // [✅ 최적화 2] 그림자 해상도 다이어트 (4096 -> 2048)
         dirLight.shadow.mapSize.width = 2048; 
         dirLight.shadow.mapSize.height = 2048;
-        
         dirLight.shadow.camera.left = -200;
         dirLight.shadow.camera.right = 200;
         dirLight.shadow.camera.top = 200;
         dirLight.shadow.camera.bottom = -200;
         scene.add(dirLight);
 
-        // 바닥 (대지)
+        // 바닥
         const floorGeo = new THREE.PlaneGeometry(3000, 3000);
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -132,13 +128,10 @@
                 model.rotation.x = -Math.PI / 2;
                 model.scale.set(2, 2, 2); 
 
-                // [✅ 최적화 3] 모든 객체에 그림자를 넣지 않고, 필요한 경우에만 계산하도록 할 수 있음
-                // 지금은 유지하되, 만약 너무 느리면 castShadow를 끌 수도 있습니다.
                 model.traverse(function (object) {
                     if (object.isMesh) {
                         object.castShadow = true;
                         object.receiveShadow = true;
-                        // 렌더링 최적화를 위해 Frustum Culling 활성화 (기본값이 true지만 확실하게)
                         object.frustumCulled = true; 
                     }
                 });
@@ -204,8 +197,12 @@
                 direction.x = Number(moveRight) - Number(moveLeft);
                 direction.normalize();
 
-                if (moveForward || moveBackward) velocity.z -= direction.z * 200.0 * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * 200.0 * delta;
+                // [✅ 수정] 이동 속도 대폭 증가! (200 -> 600)
+                // 이제 거의 자동차 속도(시속 60km 정도)로 움직입니다.
+                if (moveForward || moveBackward) velocity.z -= direction.z * 600.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 600.0 * delta;
+                
+                // [참고] 수직 속도는 적당하다고 하셔서 200 유지 (너무 빠르면 컨트롤 어려움)
                 if (moveUp) velocity.y += 200.0 * delta;   
                 if (moveDown) velocity.y -= 200.0 * delta; 
 
