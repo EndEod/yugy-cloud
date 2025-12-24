@@ -55,15 +55,17 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB); 
         
-        // 안개 설정 (멀리까지 보이게)
-        scene.fog = new THREE.Fog(0x87CEEB, 50, 500);
+        // [✅ 수정 1] 안개 제거! (맑은 날씨)
+        // scene.fog = ... (이 줄을 지워서 안개를 걷어냈습니다)
 
-        // 카메라 설정 (FOV 75도)
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        // 카메라 설정
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
         
-        // [✅ 핵심 수정] 카메라 위치 조정
-        // 오른쪽(X: 40), 위(Y: 30), 뒤로(Z: 100) 이동하여 건물을 한눈에 담습니다.
-        camera.position.set(40, 30, 100);
+        // [✅ 수정 2] 카메라 위치 대폭 수정 (드론 시점)
+        // X: -50 (왼쪽으로 이동해서 건물을 중앙으로)
+        // Y: 100 (높이 100m 상공으로 띄움)
+        // Z: 250 (건물 전체가 보이도록 아주 멀리 후진)
+        camera.position.set(-50, 100, 250);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -75,19 +77,22 @@
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
         scene.add(hemiLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight.position.set(50, 100, 50);
+        // [✅ 수정 3] 해를 쨍쨍하게 (강도 1.5 -> 2.5)
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        dirLight.position.set(100, 200, 100); // 해 위치도 더 높게
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 4096;
         dirLight.shadow.mapSize.height = 4096;
-        dirLight.shadow.camera.left = -100;
-        dirLight.shadow.camera.right = 100;
-        dirLight.shadow.camera.top = 100;
-        dirLight.shadow.camera.bottom = -100;
+        
+        // 그림자 범위도 더 넓게 (건물이 커졌으므로)
+        dirLight.shadow.camera.left = -200;
+        dirLight.shadow.camera.right = 200;
+        dirLight.shadow.camera.top = 200;
+        dirLight.shadow.camera.bottom = -200;
         scene.add(dirLight);
 
         // 바닥 (대지)
-        const floorGeo = new THREE.PlaneGeometry(2000, 2000);
+        const floorGeo = new THREE.PlaneGeometry(3000, 3000); // 바닥도 더 넓게
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
@@ -99,8 +104,8 @@
         const instruction = document.getElementById('instruction');
         const shopBtn = document.getElementById('shopBtn');
 
-        // [✅ 추가] 시작할 때 카메라가 건물을 바라보게 함 (컨트롤 잠금 전)
-        camera.lookAt(0, 10, 0); 
+        // [✅ 수정 4] 카메라가 건물의 중심(0,0,0)을 내려다보게 고정
+        camera.lookAt(0, 0, 0); 
 
         document.body.addEventListener('click', () => {
             controls.lock();
@@ -188,9 +193,9 @@
                 direction.x = Number(moveRight) - Number(moveLeft);
                 direction.normalize();
 
-                // 이동 속도 (건물이 크니까 빠르게)
-                if (moveForward || moveBackward) velocity.z -= direction.z * 150.0 * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * 150.0 * delta;
+                // 이동 속도 (하늘을 나니까 더 빠르게: 200)
+                if (moveForward || moveBackward) velocity.z -= direction.z * 200.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 200.0 * delta;
 
                 controls.moveRight(-velocity.x * delta);
                 controls.moveForward(-velocity.z * delta);
