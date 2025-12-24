@@ -60,7 +60,8 @@
 
         // 카메라 설정
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.set(0, 1.7, 30); // 건물 전체를 보기 위해 조금 더 뒤로 이동 (30m)
+        // 시작 위치: 건물이 커졌으니 조금 더 뒤로(50m) 물러나서 시작
+        camera.position.set(0, 1.7, 50); 
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -109,15 +110,18 @@
             shopBtn.style.display = 'block';
         });
 
-        // 3. 모델 불러오기 (여기가 핵심!)
+        // 3. 모델 불러오기 (여기가 핵심 수정 부분입니다!)
         const loader = new GLTFLoader();
         loader.load(
             './model.glb', 
             function (gltf) {
                 const model = gltf.scene;
                 
-                // ✅ 축소 코드(model.scale.set)를 삭제했습니다!
-                // 이제 1:1 실제 크기로 나옵니다.
+                // [✅ 수정 1] 회전: 누워있는 건물을 90도 일으켜 세웁니다.
+                model.rotation.x = -Math.PI / 2;
+
+                // [✅ 수정 2] 스케일: 크기를 2배로 키웁니다.
+                model.scale.set(2, 2, 2); 
 
                 model.traverse(function (object) {
                     if (object.isMesh) {
@@ -179,8 +183,9 @@
                 direction.x = Number(moveRight) - Number(moveLeft);
                 direction.normalize();
 
-                if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
+                // 이동 속도 (건물이 커졌으니 속도도 조금 더 올립니다: 100 -> 150)
+                if (moveForward || moveBackward) velocity.z -= direction.z * 150.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 150.0 * delta;
 
                 controls.moveRight(-velocity.x * delta);
                 controls.moveForward(-velocity.z * delta);
