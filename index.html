@@ -14,6 +14,7 @@
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             color: white; text-align: center; background: rgba(0,0,0,0.5);
             padding: 20px; border-radius: 10px; pointer-events: none;
+            line-height: 1.6;
         }
         #crosshair {
             position: absolute; top: 50%; left: 50%; width: 10px; height: 10px;
@@ -39,11 +40,14 @@
 <body>
     <div id="loading">🏗️ 모델하우스 짓는 중... (잠시만 기다려주세요)</div>
     <div id="crosshair"></div>
+    
     <div id="instruction">
         화면을 클릭하면 시작합니다.<br>
-        [W, A, S, D] 이동 | [마우스] 시선<br>
-        [ESC] 나가기
+        [W, A, S, D] 앞뒤좌우 이동<br>
+        <strong>[SPACE] 위로 상승 | [SHIFT] 아래로 하강</strong><br>
+        [마우스] 시선 이동 | [ESC] 나가기
     </div>
+
     <a href="https://smartstore.naver.com/kiendeod_susutto" target="_blank" class="btn-link" id="shopBtn">🛍️ 비용 확인 및 상담 신청</a>
 
     <script type="module">
@@ -55,16 +59,12 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB); 
         
-        // [✅ 수정 1] 안개 제거! (맑은 날씨)
-        // scene.fog = ... (이 줄을 지워서 안개를 걷어냈습니다)
+        // 안개 없음 (맑은 날씨)
 
         // 카메라 설정
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
         
-        // [✅ 수정 2] 카메라 위치 대폭 수정 (드론 시점)
-        // X: -50 (왼쪽으로 이동해서 건물을 중앙으로)
-        // Y: 100 (높이 100m 상공으로 띄움)
-        // Z: 250 (건물 전체가 보이도록 아주 멀리 후진)
+        // 시작 위치 (약간 멀리서 전체를 조망하며 시작)
         camera.position.set(-50, 100, 250);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -77,14 +77,11 @@
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
         scene.add(hemiLight);
 
-        // [✅ 수정 3] 해를 쨍쨍하게 (강도 1.5 -> 2.5)
         const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
-        dirLight.position.set(100, 200, 100); // 해 위치도 더 높게
+        dirLight.position.set(100, 200, 100);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 4096;
         dirLight.shadow.mapSize.height = 4096;
-        
-        // 그림자 범위도 더 넓게 (건물이 커졌으므로)
         dirLight.shadow.camera.left = -200;
         dirLight.shadow.camera.right = 200;
         dirLight.shadow.camera.top = 200;
@@ -92,7 +89,7 @@
         scene.add(dirLight);
 
         // 바닥 (대지)
-        const floorGeo = new THREE.PlaneGeometry(3000, 3000); // 바닥도 더 넓게
+        const floorGeo = new THREE.PlaneGeometry(3000, 3000);
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
@@ -104,7 +101,7 @@
         const instruction = document.getElementById('instruction');
         const shopBtn = document.getElementById('shopBtn');
 
-        // [✅ 수정 4] 카메라가 건물의 중심(0,0,0)을 내려다보게 고정
+        // 시작 시 건물 중심 바라보기
         camera.lookAt(0, 0, 0); 
 
         document.body.addEventListener('click', () => {
@@ -127,10 +124,10 @@
             function (gltf) {
                 const model = gltf.scene;
                 
-                // 회전: 누워있는 건물을 90도 일으켜 세움
+                // 회전: 90도 세우기
                 model.rotation.x = -Math.PI / 2;
 
-                // 스케일: 2배 (유지)
+                // 스케일: 2배
                 model.scale.set(2, 2, 2); 
 
                 model.traverse(function (object) {
@@ -149,11 +146,16 @@
             }
         );
 
-        // 4. 움직임 처리
+        // 4. 움직임 처리 (드론 모드 업그레이드)
         let moveForward = false;
         let moveBackward = false;
         let moveLeft = false;
         let moveRight = false;
+        
+        // [✅ 추가] 상하 이동 플래그
+        let moveUp = false;
+        let moveDown = false;
+
         const velocity = new THREE.Vector3();
         const direction = new THREE.Vector3();
         let prevTime = performance.now();
@@ -164,6 +166,10 @@
                 case 'ArrowLeft': case 'KeyA': moveLeft = true; break;
                 case 'ArrowDown': case 'KeyS': moveBackward = true; break;
                 case 'ArrowRight': case 'KeyD': moveRight = true; break;
+                
+                // [✅ 추가] 스페이스바(상승), 쉬프트(하강)
+                case 'Space': moveUp = true; break;
+                case 'ShiftLeft': case 'ShiftRight': moveDown = true; break;
             }
         };
 
@@ -173,6 +179,10 @@
                 case 'ArrowLeft': case 'KeyA': moveLeft = false; break;
                 case 'ArrowDown': case 'KeyS': moveBackward = false; break;
                 case 'ArrowRight': case 'KeyD': moveRight = false; break;
+                
+                // [✅ 추가] 키 떼면 멈춤
+                case 'Space': moveUp = false; break;
+                case 'ShiftLeft': case 'ShiftRight': moveDown = false; break;
             }
         };
 
@@ -186,19 +196,28 @@
                 const time = performance.now();
                 const delta = (time - prevTime) / 1000;
 
+                // 감속 (미끄러짐 효과)
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
+                velocity.y -= velocity.y * 10.0 * delta; // [✅ 추가] 수직 감속
 
                 direction.z = Number(moveForward) - Number(moveBackward);
                 direction.x = Number(moveRight) - Number(moveLeft);
                 direction.normalize();
 
-                // 이동 속도 (하늘을 나니까 더 빠르게: 200)
+                // 수평 이동 속도 (200.0)
                 if (moveForward || moveBackward) velocity.z -= direction.z * 200.0 * delta;
                 if (moveLeft || moveRight) velocity.x -= direction.x * 200.0 * delta;
 
+                // [✅ 추가] 수직 이동 로직 (엘리베이터 기능)
+                if (moveUp) velocity.y += 200.0 * delta;   // 상승 속도
+                if (moveDown) velocity.y -= 200.0 * delta; // 하강 속도
+
                 controls.moveRight(-velocity.x * delta);
                 controls.moveForward(-velocity.z * delta);
+                
+                // [✅ 추가] 카메라 높이(Y축) 직접 제어
+                camera.position.y += velocity.y * delta;
 
                 prevTime = time;
             } else {
