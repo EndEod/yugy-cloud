@@ -59,16 +59,19 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB); 
         
-        // 안개 없음 (맑은 날씨)
-
         // 카메라 설정
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
-        
-        // 시작 위치 (약간 멀리서 전체를 조망하며 시작)
         camera.position.set(-50, 100, 250);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        // [✅ 최적화 1] 전력 우선 모드 설정 & 픽셀 비율 제한
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            powerPreference: "high-performance" // 성능 우선
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        // 고해상도 모니터에서도 최대 2배까지만 렌더링 (렉 방지 핵심)
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
         document.body.appendChild(renderer.domElement);
@@ -80,8 +83,11 @@
         const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
         dirLight.position.set(100, 200, 100);
         dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 4096;
-        dirLight.shadow.mapSize.height = 4096;
+        
+        // [✅ 최적화 2] 그림자 해상도 다이어트 (4096 -> 2048)
+        dirLight.shadow.mapSize.width = 2048; 
+        dirLight.shadow.mapSize.height = 2048;
+        
         dirLight.shadow.camera.left = -200;
         dirLight.shadow.camera.right = 200;
         dirLight.shadow.camera.top = 200;
@@ -101,7 +107,6 @@
         const instruction = document.getElementById('instruction');
         const shopBtn = document.getElementById('shopBtn');
 
-        // 시작 시 건물 중심 바라보기
         camera.lookAt(0, 0, 0); 
 
         document.body.addEventListener('click', () => {
@@ -124,16 +129,17 @@
             function (gltf) {
                 const model = gltf.scene;
                 
-                // 회전: 90도 세우기
                 model.rotation.x = -Math.PI / 2;
-
-                // 스케일: 2배
                 model.scale.set(2, 2, 2); 
 
+                // [✅ 최적화 3] 모든 객체에 그림자를 넣지 않고, 필요한 경우에만 계산하도록 할 수 있음
+                // 지금은 유지하되, 만약 너무 느리면 castShadow를 끌 수도 있습니다.
                 model.traverse(function (object) {
                     if (object.isMesh) {
                         object.castShadow = true;
                         object.receiveShadow = true;
+                        // 렌더링 최적화를 위해 Frustum Culling 활성화 (기본값이 true지만 확실하게)
+                        object.frustumCulled = true; 
                     }
                 });
                 scene.add(model);
@@ -146,13 +152,11 @@
             }
         );
 
-        // 4. 움직임 처리 (드론 모드 업그레이드)
+        // 4. 움직임 처리
         let moveForward = false;
         let moveBackward = false;
         let moveLeft = false;
         let moveRight = false;
-        
-        // [✅ 추가] 상하 이동 플래그
         let moveUp = false;
         let moveDown = false;
 
@@ -166,8 +170,6 @@
                 case 'ArrowLeft': case 'KeyA': moveLeft = true; break;
                 case 'ArrowDown': case 'KeyS': moveBackward = true; break;
                 case 'ArrowRight': case 'KeyD': moveRight = true; break;
-                
-                // [✅ 추가] 스페이스바(상승), 쉬프트(하강)
                 case 'Space': moveUp = true; break;
                 case 'ShiftLeft': case 'ShiftRight': moveDown = true; break;
             }
@@ -179,8 +181,6 @@
                 case 'ArrowLeft': case 'KeyA': moveLeft = false; break;
                 case 'ArrowDown': case 'KeyS': moveBackward = false; break;
                 case 'ArrowRight': case 'KeyD': moveRight = false; break;
-                
-                // [✅ 추가] 키 떼면 멈춤
                 case 'Space': moveUp = false; break;
                 case 'ShiftLeft': case 'ShiftRight': moveDown = false; break;
             }
@@ -196,27 +196,21 @@
                 const time = performance.now();
                 const delta = (time - prevTime) / 1000;
 
-                // 감속 (미끄러짐 효과)
                 velocity.x -= velocity.x * 10.0 * delta;
                 velocity.z -= velocity.z * 10.0 * delta;
-                velocity.y -= velocity.y * 10.0 * delta; // [✅ 추가] 수직 감속
+                velocity.y -= velocity.y * 10.0 * delta; 
 
                 direction.z = Number(moveForward) - Number(moveBackward);
                 direction.x = Number(moveRight) - Number(moveLeft);
                 direction.normalize();
 
-                // 수평 이동 속도 (200.0)
                 if (moveForward || moveBackward) velocity.z -= direction.z * 200.0 * delta;
                 if (moveLeft || moveRight) velocity.x -= direction.x * 200.0 * delta;
-
-                // [✅ 추가] 수직 이동 로직 (엘리베이터 기능)
-                if (moveUp) velocity.y += 200.0 * delta;   // 상승 속도
-                if (moveDown) velocity.y -= 200.0 * delta; // 하강 속도
+                if (moveUp) velocity.y += 200.0 * delta;   
+                if (moveDown) velocity.y -= 200.0 * delta; 
 
                 controls.moveRight(-velocity.x * delta);
                 controls.moveForward(-velocity.z * delta);
-                
-                // [✅ 추가] 카메라 높이(Y축) 직접 제어
                 camera.position.y += velocity.y * delta;
 
                 prevTime = time;
