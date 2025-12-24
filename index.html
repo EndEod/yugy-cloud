@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>뚱뚜루 건축사무소 - 메타버스 전시장</title>
+    <title>뚱뚜루의 온라인 모델하우스</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Malgun Gothic', sans-serif; }
         #loading {
@@ -37,14 +37,14 @@
     </script>
 </head>
 <body>
-    <div id="loading">🏗️ 건물 짓는 중... (잠시만 기다려주세요)</div>
+    <div id="loading">🏗️ 모델하우스 짓는 중... (잠시만 기다려주세요)</div>
     <div id="crosshair"></div>
     <div id="instruction">
         화면을 클릭하면 시작합니다.<br>
         [W, A, S, D] 이동 | [마우스] 시선<br>
         [ESC] 나가기
     </div>
-    <a href="https://smartstore.naver.com/kiendeod_susutto" target="_blank" class="btn-link" id="shopBtn">🛍️ 스토어 바로가기</a>
+    <a href="https://smartstore.naver.com/kiendeod_susutto" target="_blank" class="btn-link" id="shopBtn">🛍️ 비용 확인 및 상담 신청</a>
 
     <script type="module">
         import * as THREE from 'three';
@@ -56,11 +56,14 @@
         scene.background = new THREE.Color(0x87CEEB); 
         
         // 안개 설정 (멀리까지 보이게)
-        scene.fog = new THREE.Fog(0x87CEEB, 20, 500);
+        scene.fog = new THREE.Fog(0x87CEEB, 50, 500);
 
-        // 카메라 설정
+        // 카메라 설정 (FOV 75도)
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.set(0, 1.7, 30); // 건물 전체를 보기 위해 조금 더 뒤로 이동 (30m)
+        
+        // [✅ 핵심 수정] 카메라 위치 조정
+        // 오른쪽(X: 40), 위(Y: 30), 뒤로(Z: 100) 이동하여 건물을 한눈에 담습니다.
+        camera.position.set(40, 30, 100);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -84,7 +87,7 @@
         scene.add(dirLight);
 
         // 바닥 (대지)
-        const floorGeo = new THREE.PlaneGeometry(1000, 1000);
+        const floorGeo = new THREE.PlaneGeometry(2000, 2000);
         const floorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
@@ -95,6 +98,9 @@
         const controls = new PointerLockControls(camera, document.body);
         const instruction = document.getElementById('instruction');
         const shopBtn = document.getElementById('shopBtn');
+
+        // [✅ 추가] 시작할 때 카메라가 건물을 바라보게 함 (컨트롤 잠금 전)
+        camera.lookAt(0, 10, 0); 
 
         document.body.addEventListener('click', () => {
             controls.lock();
@@ -109,15 +115,18 @@
             shopBtn.style.display = 'block';
         });
 
-        // 3. 모델 불러오기 (여기가 핵심!)
+        // 3. 모델 불러오기
         const loader = new GLTFLoader();
         loader.load(
             './model.glb', 
             function (gltf) {
                 const model = gltf.scene;
                 
-                // ✅ 축소 코드(model.scale.set)를 삭제했습니다!
-                // 이제 1:1 실제 크기로 나옵니다.
+                // 회전: 누워있는 건물을 90도 일으켜 세움
+                model.rotation.x = -Math.PI / 2;
+
+                // 스케일: 2배 (유지)
+                model.scale.set(2, 2, 2); 
 
                 model.traverse(function (object) {
                     if (object.isMesh) {
@@ -179,8 +188,9 @@
                 direction.x = Number(moveRight) - Number(moveLeft);
                 direction.normalize();
 
-                if (moveForward || moveBackward) velocity.z -= direction.z * 100.0 * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * 100.0 * delta;
+                // 이동 속도 (건물이 크니까 빠르게)
+                if (moveForward || moveBackward) velocity.z -= direction.z * 150.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 150.0 * delta;
 
                 controls.moveRight(-velocity.x * delta);
                 controls.moveForward(-velocity.z * delta);
